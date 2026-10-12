@@ -1,5 +1,8 @@
+from pathlib import Path
+from PIL import UnidentifiedImageError
+from app.cnn_model import CIFAR10Classifier
 from typing import Union
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from pydantic import BaseModel, Field
 from app.bigram_model import BigramModel
 from app.embedding_model import EmbeddingModel
@@ -17,6 +20,12 @@ It tells the story of Edmond Dantès, who is falsely imprisoned and later seeks 
 
 bigram_model = BigramModel(corpus)
 embedding_model = EmbeddingModel()
+
+cnn_classifier = CIFAR10Classifier(
+    Path(__file__).resolve().parent
+    / "models"
+    / "cifar10_cnn.pth"
+)
 
 class TextGenerationRequest(BaseModel):
     start_word: str
@@ -51,3 +60,15 @@ def get_similarity(request: SimilarityRequest):
     if similarity is None:
         raise HTTPException(status_code=404, detail="At least one of the words has no embedding")
     return {"word1": request.word1, "word2": request.word2, "similarity": similarity}
+
+@app.post("/classify")
+def classify_image(file: UploadFile = File(...)):
+    image_bytes = file.file.read()
+
+    try:
+        return cnn_classifier.predict(image_bytes)
+    except (UnidentifiedImageError, OSError):
+        raise HTTPException(
+            status_code=400,
+            detail="Please upload a valid image file."
+        )
