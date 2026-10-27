@@ -1,8 +1,10 @@
 from pathlib import Path
 from PIL import UnidentifiedImageError
 from app.cnn_model import CIFAR10Classifier
+from app.gan_model import MNISTDigitGenerator
 from typing import Union
-from fastapi import FastAPI, HTTPException, File, UploadFile
+from fastapi import FastAPI, HTTPException, File, UploadFile, Query
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from app.bigram_model import BigramModel
 from app.embedding_model import EmbeddingModel
@@ -25,6 +27,12 @@ cnn_classifier = CIFAR10Classifier(
     Path(__file__).resolve().parent
     / "models"
     / "cifar10_cnn.pth"
+)
+
+gan_generator = MNISTDigitGenerator(
+    Path(__file__).resolve().parent
+    / "models"
+    / "mnist_gan_generator.pth"
 )
 
 class TextGenerationRequest(BaseModel):
@@ -72,3 +80,16 @@ def classify_image(file: UploadFile = File(...)):
             status_code=400,
             detail="Please upload a valid image file."
         )
+
+@app.get(
+    "/generate_digits",
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}}}
+)
+def generate_digits(
+    num_samples: int = Query(16, ge=1, le=64),
+    seed: int | None = Query(None, ge=0)
+):
+    # The same seed always returns the same digits
+    png_bytes = gan_generator.generate_png(num_samples, seed)
+    return Response(content=png_bytes, media_type="image/png")

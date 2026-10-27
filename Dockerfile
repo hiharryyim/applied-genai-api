@@ -19,6 +19,7 @@ COPY pyproject.toml uv.lock README.md /code/
 RUN uv sync --frozen --no-dev
 
 COPY ./app /code/app
+COPY ./helper_lib /code/helper_lib
 
 EXPOSE 80
 
