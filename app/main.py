@@ -1,6 +1,8 @@
 from pathlib import Path
 from PIL import UnidentifiedImageError
 from app.cnn_model import CIFAR10Classifier
+from app.diffusion_model import CIFAR10DiffusionGenerator
+from app.ebm_model import CIFAR10EnergyGenerator
 from app.gan_model import MNISTDigitGenerator
 from typing import Union
 from fastapi import FastAPI, HTTPException, File, UploadFile, Query
@@ -33,6 +35,18 @@ gan_generator = MNISTDigitGenerator(
     Path(__file__).resolve().parent
     / "models"
     / "mnist_gan_generator.pth"
+)
+
+ebm_generator = CIFAR10EnergyGenerator(
+    Path(__file__).resolve().parent
+    / "models"
+    / "cifar10_ebm.pth"
+)
+
+diffusion_generator = CIFAR10DiffusionGenerator(
+    Path(__file__).resolve().parent
+    / "models"
+    / "cifar10_diffusion.pth"
 )
 
 class TextGenerationRequest(BaseModel):
@@ -92,4 +106,30 @@ def generate_digits(
 ):
     # The same seed always returns the same digits
     png_bytes = gan_generator.generate_png(num_samples, seed)
+    return Response(content=png_bytes, media_type="image/png")
+
+@app.get(
+    "/generate_cifar_ebm",
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}}}
+)
+def generate_cifar_ebm(
+    num_samples: int = Query(16, ge=1, le=64),
+    steps: int = Query(60, ge=1, le=256),
+    seed: int | None = Query(None, ge=0)
+):
+    png_bytes = ebm_generator.generate_png(num_samples, steps, seed)
+    return Response(content=png_bytes, media_type="image/png")
+
+@app.get(
+    "/generate_cifar_diffusion",
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}}}
+)
+def generate_cifar_diffusion(
+    num_samples: int = Query(16, ge=1, le=64),
+    steps: int = Query(50, ge=1, le=200),
+    seed: int | None = Query(None, ge=0)
+):
+    png_bytes = diffusion_generator.generate_png(num_samples, steps, seed)
     return Response(content=png_bytes, media_type="image/png")
